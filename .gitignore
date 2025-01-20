@@ -1,0 +1,14 @@
+# Ignore virtual environment and environment files
+venv
+.env
+
+# Ignore all pycache folders recursively
+**/__pycache__/
+
+# Ignore compiled Python files
+*.pyc
+
+# Ignore the Postman API collection file
+
+**/media/
+**/static/
