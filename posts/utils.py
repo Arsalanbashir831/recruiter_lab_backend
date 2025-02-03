@@ -160,3 +160,31 @@ def generate_linkedin_post_components(details: dict, tone: ToneType) -> Optional
         return str(e)
     
 
+def generate_section(content : str , prompt : str):
+    try:
+        system_message = SystemMessage(
+            content=(
+                "You are a professional content rewriter specializing in regenerating LinkedIn hiring posts based on the prompt "
+                "Your task is to create engaging, concise, and professional job posts that attract qualified candidates. "
+                "You must regenerate without forgetting the original crux of the post. "
+            )
+        )
+
+        human_message = HumanMessage(
+            content=(
+                f"Regenerate the following LinkedIn post based on the prompt '{prompt}'\n\n"
+                f"{content}\n\n"
+                "Generate the response now."
+            )
+        )
+
+        response = llm.invoke([system_message, human_message])
+        print(response)
+        # print("Response metadata:", response.response_metadata)
+
+        return response.content.strip()
+
+    except Exception as e:
+        print("Error generating LinkedIn post components:", e)
+        return None
+

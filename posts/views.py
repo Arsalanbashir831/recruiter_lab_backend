@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from .models import Post, Image
-from .utils import generate_linkedin_hiring_post, generate_linkedin_post_components
+from .utils import generate_linkedin_hiring_post, generate_linkedin_post_components, generate_section
 from .serializers import PostSerializer, PostCreateSerializer, ImageSerializer
 
 # Post Views
@@ -128,10 +128,8 @@ class GenerateAIContentView(APIView):
         # result: str = str(generate_linkedin_hiring_post(details=post_content))
 
         result = generate_linkedin_post_components(post_content, tone)
-        print(result)
-        print(type(result))
-        if result is None:
-            return Response({"error": "Failed to generate AI content."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        if isinstance(result, str):
+            return Response({"error": f"Failed to generate AI content. {result}" }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 
         # Update the post with the generated content
@@ -143,3 +141,56 @@ class GenerateAIContentView(APIView):
             "ai_content": result
         }, status=status.HTTP_200_OK)
     
+class RegenerateSectionView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            # Fetch the post for the authenticated user
+            post = Post.objects.get(id=pk, user=request.user)
+            prompt = request.data.get("prompt", "")
+
+            if not prompt:
+                return Response({"error": "Prompt is required."}, status=status.HTTP_400_BAD_REQUEST)
+            section = request.data.get("section", "")
+            if not section:
+                return Response({"error": "Section is required."}, status=status.HTTP_400_BAD_REQUEST)
+            
+            sections = ["hook", "body", "call_to_action"]
+
+            if section not in sections:
+                return Response({"error": "Invalid section."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        except Post.DoesNotExist:
+            return Response({"error": "Post not found or you do not have permission to access it."}, status=status.HTTP_404_NOT_FOUND)
+
+        post_content = post.user_content
+        if post_content == {} or post_content is None:
+            return Response({"error": "Post Details is empty."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        ai_content = post.ai_generated_content
+        if ai_content == {} or ai_content is None:
+            return Response({"error": "AI Content is empty."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        content = ai_content[section]
+        if not content:
+            return Response({"error": "AI Content is empty."}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Generate AI content using user content and title
+        result = str(generate_section(content, prompt))
+        if result is None:
+            return Response({"error": "Failed to generate AI content." }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        # Update the post with the generated content
+        ai_content[section] = result
+        post.ai_generated_content = ai_content
+        post.save()
+
+        return Response({
+            "message": "AI content generated successfully.",
+            "ai_content": result
+        }, status=status.HTTP_200_OK)
+    
+
+        
+        # Generate AI content using user content and title

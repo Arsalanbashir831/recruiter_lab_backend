@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     PostListView, PostCreateView, PostDetailView,
     ImageListView, ImageUploadView, ImageDeleteView,
-    GenerateAIContentView
+    GenerateAIContentView, RegenerateSectionView
 )
 
 urlpatterns = [
@@ -17,4 +17,6 @@ urlpatterns = [
     path('<int:post_id>/images/<int:image_id>/delete/', ImageDeleteView.as_view(), name='image-delete'),
 
     path('<int:pk>/generate-ai-content/', GenerateAIContentView.as_view(), name='generate-ai-content'),
+    path('<int:pk>/regenerate-content/', RegenerateSectionView.as_view(), name='regenerate-content'),
+
 ]
