@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from .models import Post, Image
-from .utils import generate_linkedin_hiring_post
+from .utils import generate_linkedin_hiring_post, generate_linkedin_post_components
 from .serializers import PostSerializer, PostCreateSerializer, ImageSerializer
 
 # Post Views
@@ -116,6 +116,7 @@ class GenerateAIContentView(APIView):
         try:
             # Fetch the post for the authenticated user
             post = Post.objects.get(id=pk, user=request.user)
+            tone = request.data.get("tone", "numbered list")
         except Post.DoesNotExist:
             return Response({"error": "Post not found or you do not have permission to access it."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -124,7 +125,14 @@ class GenerateAIContentView(APIView):
             return Response({"error": "Post Details is empty."}, status=status.HTTP_400_BAD_REQUEST)
         
         # Generate AI content using user content and title
-        result: str = str(generate_linkedin_hiring_post(details=post_content))
+        # result: str = str(generate_linkedin_hiring_post(details=post_content))
+
+        result = generate_linkedin_post_components(post_content, tone)
+        print(result)
+        print(type(result))
+        if result is None:
+            return Response({"error": "Failed to generate AI content."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
 
         # Update the post with the generated content
         post.ai_generated_content = result
