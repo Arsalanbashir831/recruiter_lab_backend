@@ -2,9 +2,12 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from .models import Post, Image
-from .utils import generate_linkedin_hiring_post, generate_linkedin_post_components, generate_section
+from .models import Post, Image, Prompt
+from .utils import generate_linkedin_hiring_post, generate_linkedin_post_components, generate_section, derive_section
+from .utils import DerivedSections
 from .serializers import PostSerializer, PostCreateSerializer, ImageSerializer
+
+from django.db import transaction
 
 # Post Views
 class PostListView(APIView):
@@ -180,7 +183,8 @@ class RegenerateSectionView(APIView):
         result = str(generate_section(content, prompt))
         if result is None:
             return Response({"error": "Failed to generate AI content." }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+        
+        
         # Update the post with the generated content
         ai_content[section] = result
         post.ai_generated_content = ai_content
@@ -192,5 +196,43 @@ class RegenerateSectionView(APIView):
         }, status=status.HTTP_200_OK)
     
 
-        
-        # Generate AI content using user content and title
+
+class ChatView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        try:
+            # Fetch the post for the authenticated user
+            post : Post = Post.objects.get(id=pk, user=request.user)
+            prompt = request.data.get("prompt", "")
+        except Post.DoesNotExist:
+            return Response({"error": "Post not found or you do not have permission to access it."}, status=status.HTTP_404_NOT_FOUND)
+        post_ai_content = post.ai_generated_content
+        if post_ai_content == {} or post_ai_content is None:
+            return Response({"error": "AI Content is empty."}, status=status.HTTP_400_BAD_REQUEST)
+
+        derived_sections: DerivedSections = derive_section(prompt)
+        derived_sections = derived_sections.model_dump(mode="json")
+        print(derived_sections)
+
+        try:
+            with transaction.atomic():
+                for section in derived_sections["sections"]:
+                    if section not in ["hook", "body", "call_to_action"]:
+                        return Response({"error": "Invalid section."}, status=status.HTTP_400_BAD_REQUEST)
+                    post_ai_content = post.ai_generated_content
+                    if post_ai_content == {} or post_ai_content is None:
+                        return Response({"error": "AI Content is empty."}, status=status.HTTP_400_BAD_REQUEST)
+                    content = post_ai_content[section]
+                    if not content:
+                        return Response({"error": "AI Content is empty."}, status=status.HTTP_400_BAD_REQUEST)
+                    result = str(generate_section(content, prompt))
+                    if result is None:
+                        return Response({"error": "Failed to generate AI content." }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                    post_ai_content[section] = result
+                    post.ai_generated_content = post_ai_content
+                    post.save()
+        except Exception as e:
+            print(e)
+            return Response({"error": "Failed to generate AI content." }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({"message": "AI content generated successfully.", "section" : derived_sections, "ai_content": post_ai_content}, status=status.HTTP_200_OK)

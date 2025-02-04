@@ -15,3 +15,10 @@ class Post(models.Model):
 class Image(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='images')
     image = models.ImageField(upload_to='images/')
+
+class Prompt(models.Model):
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='prompts')
+    prompt = models.TextField()
+    response = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)

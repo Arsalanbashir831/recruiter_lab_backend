@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     PostListView, PostCreateView, PostDetailView,
     ImageListView, ImageUploadView, ImageDeleteView,
-    GenerateAIContentView, RegenerateSectionView
+    GenerateAIContentView, RegenerateSectionView, ChatView
 )
 
 urlpatterns = [
@@ -18,5 +18,6 @@ urlpatterns = [
 
     path('<int:pk>/generate-ai-content/', GenerateAIContentView.as_view(), name='generate-ai-content'),
     path('<int:pk>/regenerate-content/', RegenerateSectionView.as_view(), name='regenerate-content'),
+    path('<int:pk>/chat/', ChatView.as_view(), name='chat'),
 
 ]

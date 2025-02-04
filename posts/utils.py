@@ -72,7 +72,7 @@ def generate_linkedin_hiring_post(details: dict) -> str:
 
 
 import json
-from typing import Literal, Optional
+from typing import Literal, Optional, List
 from pydantic import BaseModel, ValidationError, Field
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
@@ -188,3 +188,79 @@ def generate_section(content : str , prompt : str):
         print("Error generating LinkedIn post components:", e)
         return None
 
+from enum import Enum
+class SectionEnum(str, Enum):
+    hook = "hook"
+    body = "body"
+    call_to_action = "call_to_action"
+
+class DerivedSections(BaseModel):
+    sections: List[SectionEnum] = Field(
+        description="List of sections: 'hook', 'body', 'call_to_action'"
+    )
+
+def derive_section(prompt: str) -> DerivedSections:
+    """
+    Determines which section(s) the user's prompt is referring to. The LLM is instructed
+    to return a JSON object with a key 'sections' containing a list of one or more of the following:
+    'hook', 'body', or 'call_to_action'. If the LLM's answer is unclear or invalid,
+    the function defaults to returning all three sections.
+    
+    Args:
+        prompt (str): The user prompt indicating which section(s) they are referring to.
+    
+    Returns:
+        DerivedSections: A Pydantic model containing the validated list of sections.
+    """
+    try:
+        # Construct a system message with instructions.
+        system_message = SystemMessage(
+            content=(
+                "You are a professional content analyzer. Your task is to read the user's prompt and determine "
+                "which section or sections of a LinkedIn hiring post it refers to. "
+                "The only valid section names are 'hook', 'body', and 'call_to_action'. "
+                "Return the result as a JSON object with a single key 'sections', whose value is a list of the valid section(s). "
+                "If you cannot clearly determine the intended section(s), then return all three sections."
+            )
+        )
+
+        # Construct a human message with the user's prompt.
+        human_message = HumanMessage(
+            content=(
+                f"User prompt: \"{prompt}\"\n\n"
+                "Based on the above prompt, identify which of the following sections the user is referring to: "
+                "'hook', 'body', or 'call_to_action'. "
+                "Return your answer in JSON format as: {\"sections\": [list of sections]}. "
+                "If the answer is unclear, return all sections: "
+                "[\"hook\", \"body\", \"call_to_action\"]."
+            )
+        )
+
+        # Use LangChain's structured output capability if available.
+        structured_llm = llm.with_structured_output(DerivedSections)
+        response = structured_llm.invoke([system_message, human_message])
+        print("LLM structured response:", response)
+
+        # If we successfully get a DerivedSections model, return it.
+        if isinstance(response, DerivedSections):
+            return response
+
+        # Otherwise, try to parse response.content as JSON.
+        try:
+            response_json = json.loads(response.content.strip())
+            # Validate and build our DerivedSections model.
+            derived = DerivedSections(**response_json)
+            return derived
+        except (json.JSONDecodeError, ValidationError) as parse_err:
+            print("Error parsing LLM response:", parse_err)
+            # Fallback: return all sections.
+            return DerivedSections(
+                sections=[SectionEnum.hook, SectionEnum.body, SectionEnum.call_to_action]
+            )
+    except Exception as e:
+        print("Error in derive_section:", e)
+        # Fallback: return all sections.
+        return DerivedSections(
+            sections=[SectionEnum.hook, SectionEnum.body, SectionEnum.call_to_action]
+        )
+    

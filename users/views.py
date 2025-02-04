@@ -164,6 +164,7 @@ class LogoutView(APIView):
 
 
 class VerifyOTPView(APIView):
+    permission_classes = (AllowAny,)
     def post(self, request):
         email = request.data.get("email")
         otp_value = request.data.get("otp")
@@ -191,7 +192,8 @@ class VerifyOTPView(APIView):
 
 
 class ResendOTPView(APIView):
-    @method_decorator(ratelimit(key="ip", rate="5/m", block=True))
+    # @method_decorator(ratelimit(key="ip", rate="5/m", block=True))
+    permission_classes = (AllowAny,)
     def post(self, request):
         email = request.data.get("email")
         print(email)
