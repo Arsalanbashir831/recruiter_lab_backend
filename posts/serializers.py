@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Post, Image
+from .models import Post, Image, Prompt
 
 class ImageSerializer(serializers.ModelSerializer):
     class Meta:
@@ -31,3 +31,10 @@ class PostCreateSerializer(serializers.ModelSerializer):
         for image_data in images_data:
             Image.objects.create(post=post, image=image_data)
         return post
+
+
+class PromptSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Prompt
+        fields = ['id', 'prompt', 'response', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']

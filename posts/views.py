@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from .models import Post, Image, Prompt
 from .utils import generate_linkedin_hiring_post, generate_linkedin_post_components, generate_section, derive_section
 from .utils import DerivedSections
-from .serializers import PostSerializer, PostCreateSerializer, ImageSerializer
+from .serializers import PostSerializer, PostCreateSerializer, ImageSerializer, PromptSerializer
 
 from django.db import transaction
 
@@ -179,17 +179,24 @@ class RegenerateSectionView(APIView):
         if not content:
             return Response({"error": "AI Content is empty."}, status=status.HTTP_400_BAD_REQUEST)
         
-        # Generate AI content using user content and title
-        result = str(generate_section(content, prompt))
-        if result is None:
-            return Response({"error": "Failed to generate AI content." }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-        
-        # Update the post with the generated content
-        ai_content[section] = result
-        post.ai_generated_content = ai_content
-        post.save()
+        try:
+            
+            # Generate AI content using user content and title
+            result = str(generate_section(content, prompt))
+            if result is None:
+                return Response({"error": "Failed to generate AI content." }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+            with transaction.atomic(): 
+            # Update the post with the generated content
+                ai_content[section] = result
+                post.ai_generated_content = ai_content
+                post.save()
 
+                Prompt.objects.create(prompt=prompt, post=post, response=ai_content)
+
+        except Exception as e:
+            return Response({"error": f"Failed to generate AI content. {e}" }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
         return Response({
             "message": "AI content generated successfully.",
             "ai_content": result
@@ -217,10 +224,11 @@ class ChatView(APIView):
 
         try:
             with transaction.atomic():
+                post_ai_content = post.ai_generated_content
                 for section in derived_sections["sections"]:
                     if section not in ["hook", "body", "call_to_action"]:
                         return Response({"error": "Invalid section."}, status=status.HTTP_400_BAD_REQUEST)
-                    post_ai_content = post.ai_generated_content
+                    
                     if post_ai_content == {} or post_ai_content is None:
                         return Response({"error": "AI Content is empty."}, status=status.HTTP_400_BAD_REQUEST)
                     content = post_ai_content[section]
@@ -230,9 +238,29 @@ class ChatView(APIView):
                     if result is None:
                         return Response({"error": "Failed to generate AI content." }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
                     post_ai_content[section] = result
-                    post.ai_generated_content = post_ai_content
-                    post.save()
+                post.ai_generated_content = post_ai_content
+                post.save()    
+                Prompt.objects.create(prompt=prompt, post=post, response=post_ai_content)
         except Exception as e:
             print(e)
             return Response({"error": "Failed to generate AI content." }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
         return Response({"message": "AI content generated successfully.", "section" : derived_sections, "ai_content": post_ai_content}, status=status.HTTP_200_OK)
+    
+
+
+class PromptsPostView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        try:
+            # Fetch the post for the authenticated user
+            post = Post.objects.get(id=pk, user=request.user)
+        except Post.DoesNotExist:
+            return Response({"error": "Post not found or you do not have permission to access it."}, status=status.HTTP_404_NOT_FOUND)
+        
+        prompts = Prompt.objects.filter(post=post)
+        
+        serializer = PromptSerializer(prompts, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
