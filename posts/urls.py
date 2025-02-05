@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import (
-    PostListView, PostCreateView, PostDetailView,
+    PostListView, PostCreateView, PostUpdateView, PostDeleteView, PostDetailView,
     ImageListView, ImageUploadView, ImageDeleteView,
     GenerateAIContentView, RegenerateSectionView, ChatView,
     PromptsPostView,
@@ -10,6 +10,8 @@ urlpatterns = [
     # Post endpoints
     path('', PostListView.as_view(), name='post-list'),
     path('create/', PostCreateView.as_view(), name='post-create'),
+    path('<int:pk>/update/', PostUpdateView.as_view(), name='post-update'),
+    path('<int:pk>/delete/', PostDeleteView.as_view(), name='post-delete'),
     path('<int:pk>/', PostDetailView.as_view(), name='post-detail'),
 
     # Image endpoints
@@ -17,10 +19,12 @@ urlpatterns = [
     path('<int:post_id>/images/upload/', ImageUploadView.as_view(), name='image-upload'),
     path('<int:post_id>/images/<int:image_id>/delete/', ImageDeleteView.as_view(), name='image-delete'),
 
+    # AI Content endpoints
     path('<int:pk>/generate-ai-content/', GenerateAIContentView.as_view(), name='generate-ai-content'),
     path('<int:pk>/regenerate-content/', RegenerateSectionView.as_view(), name='regenerate-content'),
     path('<int:pk>/chat/', ChatView.as_view(), name='chat'),
 
+    # Prompt endpoints
     path('<int:pk>/prompts/', PromptsPostView.as_view(), name='prompts'),
 
 ]
