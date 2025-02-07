@@ -29,7 +29,7 @@ SECRET_KEY = 'django-insecure-h8m@g0t*c#)w%hv=!v(!+*=l9x%qse76)f-rw%hj$(^mlve17v
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["recruiter-lab-backend.onrender.com"]
 CORS_ALLOW_ALL_ORIGINS = True
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
